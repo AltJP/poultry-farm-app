@@ -36,6 +36,26 @@ class _EggTrackerScreenState extends State<EggTrackerScreen> {
     }
   }
 
+  // NEW FUNCTION: Deletes a specific record using its Firestore document ID
+  Future<void> _deleteEggRecord(String docId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('egg_records')
+          .doc(docId)
+          .delete();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Record deleted successfully!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete record: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,13 +107,45 @@ class _EggTrackerScreenState extends State<EggTrackerScreen> {
                   return ListView.builder(
                     itemCount: docs.length,
                     itemBuilder: (context, index) {
-                      final data = docs[index].data() as Map<String, dynamic>;
+                      final doc = docs[index]; // 👈 Reference the complete document snapshot
+                      final data = doc.data() as Map<String, dynamic>;
+                      
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 6),
                         child: ListTile(
                           leading: const Icon(Icons.egg, color: Colors.orange),
                           title: Text('${data['eggCount'] ?? 0} Eggs Collected'),
                           subtitle: const Text('Saved to Cloud Securely'),
+                          
+                          // 🛠️ ADDED: Delete Button with confirmation dialog
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () async {
+                              // Action confirmation pop-up
+                              final confirmDelete = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Delete Record'),
+                                  content: const Text('Are you sure you want to remove this egg collection entry?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              // If confirmed, trigger deletion function
+                              if (confirmDelete == true) {
+                                _deleteEggRecord(doc.id);
+                              }
+                            },
+                          ),
                         ),
                       );
                     },
